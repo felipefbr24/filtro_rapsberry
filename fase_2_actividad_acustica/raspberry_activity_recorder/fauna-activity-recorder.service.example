@@ -1,0 +1,15 @@
+[Unit]
+Description=Grabadora por actividad acustica de fauna
+After=sound.target local-fs.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 /home/pi/gt/fase_2_actividad_acustica/raspberry_activity_recorder/recorder_actividad.py --output-dir /home/pi/fauna_eventos --format flac --sample-rate 44100 --channels 1 --threshold-dbfs -30 --window-ms 250 --hop-ms 125 --pre-buffer-seconds 3 --post-buffer-seconds 5 --min-event-seconds 0.5 --max-event-seconds 60 --min-free-mb 512
+Restart=always
+RestartSec=10
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

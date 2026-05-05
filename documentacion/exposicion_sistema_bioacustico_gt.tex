@@ -1,0 +1,670 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,calc}
+
+\geometry{margin=2.2cm}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!50!black,
+  citecolor=blue!50!black
+}
+
+\definecolor{gtblue}{HTML}{1D4E89}
+\definecolor{gtgreen}{HTML}{2E7D32}
+\definecolor{gtorange}{HTML}{EF6C00}
+\definecolor{gtgray}{HTML}{455A64}
+\definecolor{gtlight}{HTML}{F4F7FA}
+\definecolor{codebg}{HTML}{F7F7F7}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Sistema GT de Grabación Bioacústica}
+\rhead{Fases 1 y 2}
+\cfoot{\thepage}
+
+\titleformat{\section}{\Large\bfseries\color{gtblue}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{gtgray}}{\thesubsection}{0.7em}{}
+
+\lstdefinestyle{gtcode}{
+  backgroundcolor=\color{codebg},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+  frame=single,
+  framerule=0.2pt,
+  rulecolor=\color{gray!45},
+  keepspaces=true,
+  showstringspaces=false,
+  tabsize=2
+}
+\lstset{style=gtcode}
+
+\newcommand{\archivo}[1]{\texttt{#1}}
+\newcommand{\faseuno}{\textbf{Fase 1: Grabación continua}}
+\newcommand{\fasedos}{\textbf{Fase 2: Grabación por actividad acústica}}
+
+\title{\textbf{Sistema GT de Grabación Bioacústica con Raspberry Pi}\\
+\large Documento de explicación técnica y exposición}
+\author{Proyecto GT}
+\date{Mayo de 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+Este documento explica el trabajo realizado en el proyecto GT: un sistema de captura de audio para monitoreo bioacústico de ranas, aves y ambiente natural usando una Raspberry Pi. El desarrollo se organizó en dos fases. La primera fase implementa una grabadora continua, pensada para maximizar la confiabilidad en campo. La segunda fase agrega detección de actividad acústica para guardar solo eventos relevantes y reducir el uso de almacenamiento. El documento resume la motivación, arquitectura, estructura de carpetas, funcionamiento de cada script, resultados esperados y próximos pasos.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Resumen ejecutivo}
+
+El objetivo del proyecto es crear una herramienta de grabación autónoma para instalar en campo. La Raspberry Pi debe encenderse, comenzar a grabar sin intervención humana, organizar los audios, registrar metadata y detenerse antes de llenar por completo la memoria.
+
+La decisión principal fue separar responsabilidades:
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle, rounded corners=4pt, draw=gtblue, fill=gtlight, very thick, align=center, text width=4.6cm, minimum height=1.25cm},
+  arrow/.style={-{Latex[length=3mm]}, very thick, draw=gtblue}
+]
+\node[box] (field) {\textbf{Raspberry Pi en campo}\\Captura y organiza audio};
+\node[box, right=3.4cm of field] (pc) {\textbf{Computador}\\Analiza y clasifica};
+\draw[arrow, shorten >=4pt, shorten <=4pt] (field) -- (pc)
+  node[midway, above=4pt, fill=white, inner sep=2pt]{\small audios + metadata};
+\end{tikzpicture}
+\end{center}
+
+Esta separación es importante porque la Raspberry tiene recursos limitados, y en campo la prioridad es no perder datos. La clasificación de especies puede hacerse después en un computador con más capacidad.
+
+\section{Problema que se quiere resolver}
+
+En monitoreo bioacústico interesa registrar sonidos de fauna, por ejemplo ranas y aves, durante periodos largos. Hacer esto manualmente es difícil por varias razones:
+
+\begin{itemize}[leftmargin=*]
+  \item El equipo debe funcionar varias horas o días sin supervisión.
+  \item El ambiente de campo puede tener humedad, ruido, viento, insectos y lluvia.
+  \item No se debe depender de una persona para iniciar cada grabación.
+  \item Los audios deben quedar ordenados para analizarlos después.
+  \item El sistema debe evitar llenar la memoria al 100\%, porque eso puede causar errores o corrupción de archivos.
+\end{itemize}
+
+La solución propuesta es una Raspberry Pi con micrófono USB y scripts de Python controlados por \archivo{systemd}, el gestor de servicios de Linux. Así la grabadora puede iniciar automáticamente apenas se prenda el dispositivo.
+
+\section{Evolución de la idea}
+
+Al comienzo se pensó en usar una BlackBerry como grabadora de campo. Luego se aclaró que el dispositivo real era una Raspberry Pi 4 con 4 GB de RAM. Esto cambió el enfoque técnico, porque la Raspberry permite:
+
+\begin{itemize}[leftmargin=*]
+  \item usar Linux y servicios automáticos;
+  \item conectar micrófonos USB;
+  \item ejecutar Python;
+  \item guardar archivos en microSD, disco USB o SSD;
+  \item usar herramientas de audio como \archivo{arecord} y \archivo{flac}.
+\end{itemize}
+
+A partir de esa decisión se dividió el proyecto en dos fases.
+
+\section{Arquitectura general}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=1.1cm,
+  phase/.style={rectangle, rounded corners=3pt, draw=gtblue, fill=gtblue!8, very thick, align=center, minimum width=4.8cm, minimum height=1.1cm},
+  process/.style={rectangle, rounded corners=3pt, draw=gtgray, fill=white, thick, align=center, minimum width=3.8cm, minimum height=0.9cm},
+  output/.style={rectangle, rounded corners=3pt, draw=gtgreen, fill=gtgreen!8, thick, align=center, minimum width=3.8cm, minimum height=0.9cm},
+  arrow/.style={-{Latex[length=2.5mm]}, thick}
+]
+\node[process] (mic) {Micrófono USB};
+\node[process, below=of mic] (rasp) {Raspberry Pi};
+\node[phase, below left=1.0cm and 1.2cm of rasp] (f1) {Fase 1\\Grabación continua};
+\node[phase, below right=1.0cm and 1.2cm of rasp] (f2) {Fase 2\\Actividad acústica};
+\node[output, below=1.1cm of f1] (audio1) {Audios continuos\\metadata.csv};
+\node[output, below=1.1cm of f2] (audio2) {Eventos sonoros\\metadata\_eventos.csv};
+\node[process, below=2.0cm of rasp] (pc) {Computador\\clasificación posterior};
+
+\draw[arrow] (mic) -- (rasp);
+\draw[arrow] (rasp) -- (f1);
+\draw[arrow] (rasp) -- (f2);
+\draw[arrow] (f1) -- (audio1);
+\draw[arrow] (f2) -- (audio2);
+\draw[arrow] (audio1) -- (pc);
+\draw[arrow] (audio2) -- (pc);
+\end{tikzpicture}
+\caption{Arquitectura general del proyecto GT.}
+\end{figure}
+
+\section{Estructura del proyecto}
+
+La estructura actual del proyecto es:
+
+\begin{lstlisting}
+gt/
++-- README.md
++-- fase_1_grabacion_continua/
+|   +-- README.md
+|   +-- raspberry_recorder/
+|   |   +-- recorder_continuo.py
+|   |   +-- fauna-recorder.service.example
+|   |   +-- README.md
+|   |   +-- MANUAL_INSTALACION_RASPBERRY.md
+|   +-- prueba_audio_real_windows.py
+|   +-- prueba_grabadora/
+|   +-- prueba_grabadora_audio_real/
++-- fase_2_actividad_acustica/
+    +-- README.md
+    +-- simular_detector_actividad.py
+    +-- config_fase2_ejemplo.json
+    +-- notas_umbral_dataset.md
+    +-- resultados_simulacion/
+    +-- prueba_audios_cortados/
+    +-- raspberry_activity_recorder/
+        +-- recorder_actividad.py
+        +-- fauna-activity-recorder.service.example
+        +-- README.md
+        +-- MANUAL_INSTALACION_RASPBERRY_FASE2.md
+\end{lstlisting}
+
+\subsection{Para qué sirve cada carpeta}
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.18}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash\ttfamily\footnotesize}p{0.39\textwidth} X}
+\toprule
+\textnormal{Carpeta o archivo} & Función \\
+\midrule
+README.md & Explica el proyecto completo, las dos fases y el siguiente paso recomendado. \\
+fase\_1\_grabacion\_continua/ & Contiene la versión que graba todo el audio de forma continua. \\
+.../raspberry\_recorder/ & Contiene el script instalable en Raspberry para Fase 1 y su servicio systemd. \\
+recorder\_continuo.py & Programa principal de Fase 1. Usa arecord para grabar segmentos continuos. \\
+fauna-recorder.service.example & Servicio systemd para iniciar Fase 1 al prender la Raspberry. \\
+prueba\_audio\_real\_windows.py & Script auxiliar para probar micrófono real en Windows usando ffmpeg. \\
+fase\_2\_actividad\_acustica/ & Contiene la fase de detección de actividad sonora. \\
+simular\_detector\_actividad.py & Simulador offline que prueba umbrales sobre audios WAV existentes. \\
+config\_fase2\_ejemplo.json & Parámetros recomendados para Fase 2. \\
+notas\_umbral\_dataset.md & Notas de análisis de energía RMS y umbrales. \\
+raspberry\_activity\_recorder/ & Versión instalable de Fase 2 para Raspberry. \\
+recorder\_actividad.py & Programa principal de Fase 2. Escucha en vivo y guarda solo eventos. \\
+fauna-activity-recorder.service.example & Servicio systemd para iniciar Fase 2 al prender la Raspberry. \\
+\bottomrule
+\end{tabularx}
+\caption{Función de las carpetas y archivos principales del proyecto.}
+\end{table}
+
+\section{Fase 1: grabación continua}
+
+\subsection{Objetivo}
+
+La Fase 1 fue diseñada como la versión más segura. Su función es grabar todo lo que escucha el micrófono, sin decidir si hay rana, ave, ruido o silencio.
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.8cm,
+  step/.style={rectangle, rounded corners=3pt, draw=gtblue, fill=gtblue!7, align=center, minimum width=4.5cm, minimum height=0.85cm},
+  arrow/.style={-{Latex[length=2.3mm]}, thick}
+]
+\node[step] (on) {Raspberry se enciende};
+\node[step, below=of on] (service) {systemd inicia el servicio};
+\node[step, below=of service] (record) {arecord graba un segmento};
+\node[step, below=of record] (save) {se guarda WAV o FLAC};
+\node[step, below=of save] (meta) {se escribe metadata.csv};
+\node[step, below=of meta] (loop) {repetir hasta poco espacio};
+\draw[arrow] (on) -- (service);
+\draw[arrow] (service) -- (record);
+\draw[arrow] (record) -- (save);
+\draw[arrow] (save) -- (meta);
+\draw[arrow] (meta) -- (loop);
+\draw[arrow] (loop.east) .. controls +(2.0,0) and +(2.0,0) .. (record.east);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Configuración recomendada}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+Parámetro & Valor recomendado \\
+\midrule
+Formato & FLAC \\
+Frecuencia & 44100 Hz \\
+Canales & 1 canal, mono \\
+Bits & 16-bit \\
+Duración de segmento & 60 segundos \\
+Salida & /home/pi/fauna\_audio \\
+Espacio mínimo libre & 512 MB \\
+\bottomrule
+\end{tabular}
+\caption{Configuración final recomendada para Fase 1.}
+\end{table}
+
+\subsection{Salida esperada}
+
+\begin{lstlisting}
+/home/pi/fauna_audio/
++-- recorder.log
++-- 2026-05-05/
+    +-- 18-00-00.flac
+    +-- 18-01-00.flac
+    +-- 18-02-00.flac
+    +-- metadata.csv
+\end{lstlisting}
+
+Cada archivo dura aproximadamente 60 segundos. La metadata permite saber cuándo comenzó, cuándo terminó, cuánto espacio había y si el segmento se guardó correctamente.
+
+\subsection{Comando principal}
+
+\begin{lstlisting}[language=bash]
+/usr/bin/python3 /home/pi/gt/fase_1_grabacion_continua/raspberry_recorder/recorder_continuo.py --output-dir /home/pi/fauna_audio --format flac --sample-rate 44100 --channels 1 --segment-seconds 60 --min-free-mb 512
+\end{lstlisting}
+
+\subsection{Ventajas y limitaciones}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{0.42\textwidth} p{0.42\textwidth}}
+\toprule
+Ventajas & Limitaciones \\
+\midrule
+No pierde sonidos por decisiones del detector. & Usa más almacenamiento. \\
+Es la versión más confiable para campo. & Guarda silencio, viento, lluvia y ruido. \\
+Es simple de explicar y depurar. & Requiere más tiempo de análisis posterior. \\
+Sirve como referencia para validar Fase 2. & No ahorra energía ni CPU por análisis selectivo. \\
+\bottomrule
+\end{tabular}
+\caption{Balance de Fase 1.}
+\end{table}
+
+\section{Fase 2: grabación por actividad acústica}
+
+\subsection{Objetivo}
+
+La Fase 2 busca ahorrar almacenamiento. En vez de guardar todo, el sistema escucha continuamente y guarda solo fragmentos donde detecta actividad acústica.
+
+La detección no clasifica especies. No dice si el sonido es rana o ave. Solo decide si hay suficiente energía sonora para guardar un evento.
+
+\subsection{Conceptos importantes}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{RMS}: medida de energía promedio de una ventana de audio.
+  \item \textbf{dBFS}: escala de nivel digital. 0 dBFS es el máximo posible; valores negativos indican menor volumen.
+  \item \textbf{Umbral}: valor mínimo de energía para considerar que hay actividad.
+  \item \textbf{Pre-buffer}: segundos guardados antes de detectar actividad. Evita perder el inicio del canto.
+  \item \textbf{Post-buffer}: segundos guardados después de la última actividad. Evita cortar el final.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  x=1cm,y=1cm,
+  font=\small,
+  segment/.style={rectangle, draw=gtgray, fill=gtlight, minimum height=0.75cm, align=center},
+  active/.style={rectangle, draw=gtorange, fill=gtorange!20, minimum height=0.75cm, align=center},
+  saved/.style={rectangle, draw=gtgreen, very thick, fill=gtgreen!8, minimum height=0.95cm, align=center},
+  arrow/.style={-{Latex[length=2mm]}, thick}
+]
+\draw[arrow] (-4.6,1.05) -- (4.85,1.05) node[right]{tiempo};
+
+\node[segment, minimum width=2.8cm] (pretop) at (-2.6,0.25) {silencio};
+\node[active, minimum width=2.4cm] (acttop) at (0,0.25) {actividad};
+\node[segment, minimum width=2.8cm] (posttop) at (2.6,0.25) {silencio};
+
+\node[saved, minimum width=8.0cm] (savedbox) at (0,-1.05) {\textbf{evento guardado}\\pre-buffer + actividad + post-buffer};
+
+\draw[dashed, gray] (-1.2,0.85) -- (-1.2,-1.75);
+\draw[dashed, gray] (1.2,0.85) -- (1.2,-1.75);
+
+\draw[<->, thick] (-4,-2.0) -- (-1.2,-2.0) node[midway, below=2pt]{pre-buffer};
+\draw[<->, thick] (-1.2,-2.0) -- (1.2,-2.0) node[midway, below=2pt]{actividad};
+\draw[<->, thick] (1.2,-2.0) -- (4,-2.0) node[midway, below=2pt]{post-buffer};
+\end{tikzpicture}
+\caption{Idea de pre-buffer y post-buffer en Fase 2.}
+\end{figure}
+
+\subsection{Parámetros recomendados}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+Parámetro & Valor recomendado \\
+\midrule
+Umbral por defecto & -30 dBFS \\
+Umbral conservador & -35 dBFS \\
+Ventana RMS & 250 ms \\
+Hop & 125 ms \\
+Pre-buffer & 3 segundos \\
+Post-buffer & 5 segundos \\
+Duración mínima de actividad & 0.5 segundos \\
+Duración máxima de evento & 60 segundos \\
+Salida & /home/pi/fauna\_eventos \\
+\bottomrule
+\end{tabular}
+\caption{Configuración recomendada para Fase 2.}
+\end{table}
+
+\section{Simulación offline de Fase 2}
+
+Antes de implementar la grabadora real por actividad, se creó un simulador offline: \archivo{simular\_detector\_actividad.py}. Este script toma audios WAV ya existentes y responde una pregunta clave:
+
+\begin{quote}
+Si usamos cierto umbral, ¿cuánto audio se guardaría y cuántos eventos se detectarían?
+\end{quote}
+
+\subsection{Funcionamiento del simulador}
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.75cm,
+  step/.style={rectangle, rounded corners=3pt, draw=gtgray, fill=white, align=center, minimum width=5.2cm, minimum height=0.75cm},
+  arrow/.style={-{Latex[length=2mm]}, thick}
+]
+\node[step] (wav) {leer audios WAV};
+\node[step, below=of wav] (rms) {calcular RMS por ventanas};
+\node[step, below=of rms] (thr) {comparar con umbral dBFS};
+\node[step, below=of thr] (events) {formar eventos con pre/post-buffer};
+\node[step, below=of events] (csv) {generar CSV de resumen y eventos};
+\node[step, below=of csv] (clips) {opcional: exportar clips cortados};
+\draw[arrow] (wav) -- (rms);
+\draw[arrow] (rms) -- (thr);
+\draw[arrow] (thr) -- (events);
+\draw[arrow] (events) -- (csv);
+\draw[arrow] (csv) -- (clips);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Resultados obtenidos}
+
+Con el dataset de ranas se obtuvieron estos resultados:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rrrr}
+\toprule
+Umbral & Eventos & Archivos con eventos & Audio guardado \\
+\midrule
+-35 dBFS & 288 & 104/104 & 69.14\% \\
+-30 dBFS & 276 & 104/104 & 55.97\% \\
+-25 dBFS & 197 & 91/104 & 35.67\% \\
+\bottomrule
+\end{tabular}
+\caption{Resultados de simulación de actividad acústica.}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar,
+  width=0.82\textwidth,
+  height=6cm,
+  ymin=0,
+  ymax=80,
+  ylabel={Audio que se guardaría (\%)},
+  symbolic x coords={-35 dBFS,-30 dBFS,-25 dBFS},
+  xtick=data,
+  nodes near coords,
+  nodes near coords align={vertical},
+  bar width=24pt,
+  grid=major,
+  major grid style={draw=gray!25},
+  axis line style={draw=gray!70},
+  tick label style={font=\small},
+  label style={font=\small},
+]
+\addplot[fill=gtblue!65, draw=gtblue] coordinates {(-35 dBFS,69.14) (-30 dBFS,55.97) (-25 dBFS,35.67)};
+\end{axis}
+\end{tikzpicture}
+\caption{Porcentaje de audio que se guardaría con cada umbral.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar,
+  width=0.82\textwidth,
+  height=6cm,
+  ymin=0,
+  ymax=320,
+  ylabel={Eventos detectados},
+  symbolic x coords={-35 dBFS,-30 dBFS,-25 dBFS},
+  xtick=data,
+  nodes near coords,
+  nodes near coords align={vertical},
+  bar width=24pt,
+  grid=major,
+  major grid style={draw=gray!25},
+  axis line style={draw=gray!70},
+  tick label style={font=\small},
+  label style={font=\small},
+]
+\addplot[fill=gtgreen!65, draw=gtgreen] coordinates {(-35 dBFS,288) (-30 dBFS,276) (-25 dBFS,197)};
+\end{axis}
+\end{tikzpicture}
+\caption{Eventos detectados por umbral.}
+\end{figure}
+
+\subsection{Interpretación}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{-35 dBFS}: opción conservadora. Reduce poco el audio, pero es menos probable que pierda sonidos suaves o lejanos.
+  \item \textbf{-30 dBFS}: equilibrio recomendado. En la simulación mantuvo eventos en todos los audios analizados y redujo casi la mitad del audio.
+  \item \textbf{-25 dBFS}: opción más estricta. Ahorra más espacio, pero puede perder llamados suaves.
+\end{itemize}
+
+\section{Grabadora real de Fase 2 para Raspberry}
+
+Después del simulador se implementó la versión real instalable para Raspberry: \archivo{recorder\_actividad.py}.
+
+\subsection{Qué hace}
+
+\begin{enumerate}[leftmargin=*]
+  \item Inicia desde terminal o desde \archivo{systemd}.
+  \item Abre \archivo{arecord} en modo audio crudo.
+  \item Lee bloques pequeños de audio.
+  \item Calcula RMS en una ventana móvil.
+  \item Si el RMS supera el umbral, abre un evento.
+  \item Agrega audio previo usando pre-buffer.
+  \item Sigue acumulando audio mientras haya actividad.
+  \item Cuando termina la actividad, espera el post-buffer.
+  \item Guarda el evento como WAV o FLAC.
+  \item Registra una fila en \archivo{metadata\_eventos.csv}.
+\end{enumerate}
+
+\subsection{Salida esperada}
+
+\begin{lstlisting}
+/home/pi/fauna_eventos/
++-- recorder_actividad.log
++-- 2026-05-05/
+    +-- 18-03-22_evento_001.flac
+    +-- 18-10-44_evento_002.flac
+    +-- metadata_eventos.csv
+\end{lstlisting}
+
+\subsection{Comando principal}
+
+\begin{lstlisting}[language=bash]
+/usr/bin/python3 /home/pi/gt/fase_2_actividad_acustica/raspberry_activity_recorder/recorder_actividad.py --output-dir /home/pi/fauna_eventos --format flac --sample-rate 44100 --channels 1 --threshold-dbfs -30 --window-ms 250 --hop-ms 125 --pre-buffer-seconds 3 --post-buffer-seconds 5 --min-event-seconds 0.5 --max-event-seconds 60 --min-free-mb 512
+\end{lstlisting}
+
+\subsection{Servicio automático}
+
+El archivo \archivo{fauna-activity-recorder.service.example} permite que la Fase 2 arranque cuando la Raspberry se enciende.
+
+\begin{lstlisting}[language=bash]
+sudo cp /home/pi/gt/fase_2_actividad_acustica/raspberry_activity_recorder/fauna-activity-recorder.service.example /etc/systemd/system/fauna-activity-recorder.service
+sudo systemctl daemon-reload
+sudo systemctl enable fauna-activity-recorder.service
+sudo systemctl start fauna-activity-recorder.service
+\end{lstlisting}
+
+\section{Comparación entre Fase 1 y Fase 2}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{0.28\textwidth} p{0.29\textwidth} p{0.29\textwidth}}
+\toprule
+Criterio & Fase 1: continua & Fase 2: actividad \\
+\midrule
+Qué guarda & Todo el audio & Solo eventos con actividad \\
+Riesgo de perder sonidos & Muy bajo & Depende del umbral \\
+Uso de almacenamiento & Alto & Menor \\
+Complejidad & Baja & Media \\
+Ideal para & Primera salida, validación, respaldo & Ahorrar espacio después de calibrar \\
+Metadata & metadata.csv & metadata\_eventos.csv \\
+Servicio & fauna-recorder.service & fauna-activity-recorder.service \\
+\bottomrule
+\end{tabular}
+\caption{Comparación técnica entre las dos fases.}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  box/.style={rectangle, rounded corners=3pt, draw, fill=white, align=center, minimum width=4.5cm, minimum height=1.0cm},
+  arrow/.style={-{Latex[length=2mm]}, thick}
+]
+\node[box, draw=gtblue] (f1) {Fase 1\\Guardar todo};
+\node[box, draw=gtorange, right=2.5cm of f1] (f2) {Fase 2\\Guardar actividad};
+\coordinate (midfases) at ($(f1)!0.5!(f2)$);
+\node[box, draw=gtgreen, below=1.4cm of midfases] (pc) {Computador\\comparar y clasificar};
+\draw[arrow] (f1) -- node[above]{referencia completa} (f2);
+\draw[arrow] (f1) -- (pc);
+\draw[arrow] (f2) -- (pc);
+\end{tikzpicture}
+\caption{Uso recomendado: Fase 1 como referencia y Fase 2 como ahorro calibrado.}
+\end{figure}
+
+\section{Pruebas realizadas}
+
+\subsection{Pruebas de Fase 1}
+
+\begin{itemize}[leftmargin=*]
+  \item Se probó el modo \archivo{--dry-run}, que crea audios falsos para validar carpetas y metadata.
+  \item Se agregó una prueba de audio real en Windows con \archivo{ffmpeg}.
+  \item En Windows hubo intentos fallidos por el nombre del micrófono, pero luego se lograron guardar dos audios reales de 5 segundos con estado \archivo{ok}.
+\end{itemize}
+
+\subsection{Pruebas de Fase 2}
+
+\begin{itemize}[leftmargin=*]
+  \item Se simuló la detección de actividad sobre un dataset de ranas.
+  \item Se compararon umbrales \archivo{-35}, \archivo{-30} y \archivo{-25 dBFS}.
+  \item Se exportaron clips de eventos detectados para poder escucharlos.
+  \item Se probó \archivo{recorder\_actividad.py} en modo \archivo{--dry-run}; detectó eventos, guardó WAV y creó metadata con estado \archivo{ok}.
+\end{itemize}
+
+\section{Recomendación de uso en campo}
+
+Para una salida importante, la recomendación es:
+
+\begin{enumerate}[leftmargin=*]
+  \item Probar Fase 1 para asegurar que el micrófono, la energía y el almacenamiento funcionan.
+  \item Probar Fase 2 con \archivo{--max-events 3} para validar detección real.
+  \item Si es la primera vez en un sitio nuevo, usar Fase 2 con \archivo{-35 dBFS} para ser conservador.
+  \item Comparar una muestra de Fase 1 contra Fase 2 para verificar si se pierden llamados suaves.
+  \item Ajustar el umbral según el ruido del lugar.
+\end{enumerate}
+
+\section{Limitaciones actuales}
+
+\begin{itemize}[leftmargin=*]
+  \item La Fase 2 no identifica especies; solo detecta actividad acústica.
+  \item El umbral depende del ambiente. Viento, lluvia e insectos pueden activar eventos.
+  \item Todavía falta probar la Fase 2 en Raspberry real con micrófono USB.
+  \item La clasificación de ranas y aves sigue siendo una etapa posterior en computador.
+\end{itemize}
+
+\section{Próximos pasos}
+
+\begin{enumerate}[leftmargin=*]
+  \item Instalar el proyecto en la Raspberry.
+  \item Probar \archivo{arecord -l} para identificar el micrófono USB.
+  \item Ejecutar Fase 1 con 3 segmentos de prueba.
+  \item Ejecutar Fase 2 con \archivo{--max-events 3}.
+  \item Activar el servicio \archivo{systemd} correspondiente.
+  \item Hacer una prueba de reinicio para confirmar que arranca automáticamente.
+  \item Comparar resultados de Fase 1 y Fase 2 en audios reales de campo.
+  \item Conectar los audios capturados con el pipeline de clasificación posterior.
+\end{enumerate}
+
+\section{Conclusión}
+
+El proyecto GT ya cuenta con una base funcional para grabación bioacústica en Raspberry Pi. La Fase 1 ofrece una grabación continua y confiable, ideal para no perder información. La Fase 2 introduce una estrategia de ahorro de almacenamiento mediante detección de actividad acústica con RMS y umbral dBFS.
+
+La idea central se mantiene clara:
+
+\begin{center}
+\Large
+\textbf{Raspberry Pi captura audio en campo; el computador analiza después.}
+\end{center}
+
+Esta arquitectura reduce el riesgo en campo y permite avanzar hacia un sistema más completo de monitoreo de ranas, aves y otros sonidos ambientales.
+
+\appendix
+\section{Comandos rápidos}
+
+\subsection{Fase 1 en Raspberry}
+
+\begin{lstlisting}[language=bash]
+cd /home/pi/gt/fase_1_grabacion_continua
+python3 raspberry_recorder/recorder_continuo.py \
+  --output-dir /home/pi/fauna_audio \
+  --format flac \
+  --sample-rate 44100 \
+  --channels 1 \
+  --segment-seconds 10 \
+  --max-segments 3 \
+  --min-free-mb 512
+\end{lstlisting}
+
+\subsection{Fase 2 en Raspberry}
+
+\begin{lstlisting}[language=bash]
+cd /home/pi/gt
+python3 fase_2_actividad_acustica/raspberry_activity_recorder/recorder_actividad.py \
+  --output-dir /home/pi/fauna_eventos \
+  --format flac \
+  --sample-rate 44100 \
+  --channels 1 \
+  --threshold-dbfs -30 \
+  --max-events 3
+\end{lstlisting}
+
+\subsection{Ver estado del servicio}
+
+\begin{lstlisting}[language=bash]
+systemctl status fauna-recorder.service
+systemctl status fauna-activity-recorder.service
+journalctl -u fauna-activity-recorder.service -f
+\end{lstlisting}
+
+\end{document}
