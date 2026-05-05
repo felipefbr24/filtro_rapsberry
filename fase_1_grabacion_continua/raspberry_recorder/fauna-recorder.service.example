@@ -1,0 +1,15 @@
+[Unit]
+Description=Grabadora continua de fauna acustica
+After=sound.target local-fs.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=/usr/bin/python3 /home/pi/gt/fase_1_grabacion_continua/raspberry_recorder/recorder_continuo.py --output-dir /home/pi/fauna_audio --format flac --sample-rate 44100 --channels 1 --segment-seconds 60 --min-free-mb 512
+Restart=always
+RestartSec=10
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

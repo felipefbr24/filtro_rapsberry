@@ -1,0 +1,16 @@
+{
+  "output_dir": "/home/pi/fauna_eventos",
+  "format": "flac",
+  "sample_rate": 44100,
+  "channels": 1,
+  "bits": 16,
+  "activity_threshold_dbfs": -30,
+  "conservative_threshold_dbfs": -35,
+  "rms_window_ms": 250,
+  "rms_hop_ms": 125,
+  "pre_buffer_seconds": 3,
+  "post_buffer_seconds": 5,
+  "min_event_seconds": 0.5,
+  "max_event_seconds": 60,
+  "min_free_mb": 512
+}

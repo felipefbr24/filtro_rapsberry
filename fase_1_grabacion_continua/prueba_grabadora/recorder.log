@@ -1,0 +1,9 @@
+2026-05-02 21:41:52,601 INFO Iniciando grabadora continua
+2026-05-02 21:41:52,602 INFO Salida: prueba_grabadora
+2026-05-02 21:41:52,602 INFO Audio: 44100 Hz, 1 canal(es), 16-bit, formato wav, segmentos de 2 s
+2026-05-02 21:41:52,603 INFO Grabando segmento: prueba_grabadora\2026-05-02\21-41-52.wav
+2026-05-02 21:41:52,605 INFO Segmento guardado: prueba_grabadora\2026-05-02\21-41-52.wav
+2026-05-02 21:41:52,605 INFO Grabando segmento: prueba_grabadora\2026-05-02\21-41-52_001.wav
+2026-05-02 21:41:52,607 INFO Segmento guardado: prueba_grabadora\2026-05-02\21-41-52_001.wav
+2026-05-02 21:41:52,607 INFO Limite de prueba alcanzado: 2 segmentos.
+2026-05-02 21:41:52,607 INFO Grabadora detenida limpiamente.

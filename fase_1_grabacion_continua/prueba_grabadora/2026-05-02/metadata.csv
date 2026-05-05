@@ -1,0 +1,3 @@
+archivo,inicio,fin,duracion_solicitada_seg,duracion_real_seg,sample_rate,canales,bits,formato,espacio_libre_antes_mb,espacio_libre_despues_mb,estado,codigo_salida,error
+2026-05-02/21-41-52.wav,2026-05-02T21:41:52,2026-05-02T21:41:52,2,0.001,44100,1,16,wav,118364,118364,ok,0,
+2026-05-02/21-41-52_001.wav,2026-05-02T21:41:52,2026-05-02T21:41:52,2,0.001,44100,1,16,wav,118364,118364,ok,0,

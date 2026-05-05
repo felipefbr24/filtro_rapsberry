@@ -1,0 +1,40 @@
+2026-05-04 22:36:05,180 INFO Iniciando prueba de audio real en Windows
+2026-05-04 22:36:05,180 INFO Salida: prueba_grabadora_audio_real
+2026-05-04 22:36:05,180 INFO Dispositivo: default
+2026-05-04 22:36:05,180 INFO Audio: 44100 Hz, 1 canal(es), 16-bit, formato wav, segmentos de 5 s
+2026-05-04 22:36:05,184 INFO Grabando microfono real: prueba_grabadora_audio_real\2026-05-04\22-36-05.wav
+2026-05-04 22:36:05,279 ERROR Segmento fallido (error_grabacion): [in#0 @ 00000168808a8100] Could not find audio only device with name [default] among source devices of type audio.
+[in#0 @ 00000168808a8100] Could not find audio only device with name [default] among source devices of type video.
+[in#0 @ 00000168808a7e80] Error opening input: I/O error
+Error opening input file audio=default.
+Error opening input files: I/O error
+2026-05-04 22:36:05,280 INFO Limite de prueba alcanzado: 1 segmentos.
+2026-05-04 22:36:05,280 INFO Prueba detenida limpiamente.
+2026-05-04 22:40:28,452 INFO Iniciando prueba de audio real en Windows
+2026-05-04 22:40:28,452 INFO Salida: prueba_grabadora_audio_real
+2026-05-04 22:40:28,452 INFO Dispositivo: MicrÃ³fono (2- Trust GXT 232 Microphone)
+2026-05-04 22:40:28,452 INFO Audio: 44100 Hz, 1 canal(es), 16-bit, formato wav, segmentos de 5 s
+2026-05-04 22:40:28,453 INFO Grabando microfono real: prueba_grabadora_audio_real\2026-05-04\22-40-28.wav
+2026-05-04 22:40:28,529 ERROR Segmento fallido (error_grabacion): [in#0 @ 000001da0a118180] Could not find audio only device with name [MicrÃƒÂ³fono (2- Trust GXT 232 Microphone)] among source devices of type audio.
+[in#0 @ 000001da0a118180] Could not find audio only device with name [MicrÃƒÂ³fono (2- Trust GXT 232 Microphone)] among source devices of type video.
+[in#0 @ 000001da0a117ec0] Error opening input: I/O error
+Error opening input file audio=MicrÃƒÂ³fono (2- Trust GXT 232 Microphone).
+Error opening input files: I/O error
+2026-05-04 22:40:28,529 INFO Limite de prueba alcanzado: 1 segmentos.
+2026-05-04 22:40:28,529 INFO Prueba detenida limpiamente.
+2026-05-04 22:42:05,308 INFO Iniciando prueba de audio real en Windows
+2026-05-04 22:42:05,308 INFO Salida: prueba_grabadora_audio_real
+2026-05-04 22:42:05,308 INFO Dispositivo: MicrÃ³fono (2- Trust GXT 232 Microphone)
+2026-05-04 22:42:05,308 INFO Audio: 44100 Hz, 1 canal(es), 16-bit, formato wav, segmentos de 5 s
+2026-05-04 22:42:05,309 INFO Grabando microfono real: prueba_grabadora_audio_real\2026-05-04\22-42-05.wav
+2026-05-04 22:42:11,631 INFO Segmento guardado: prueba_grabadora_audio_real\2026-05-04\22-42-05.wav
+2026-05-04 22:42:11,631 INFO Limite de prueba alcanzado: 1 segmentos.
+2026-05-04 22:42:11,631 INFO Prueba detenida limpiamente.
+2026-05-04 22:42:58,935 INFO Iniciando prueba de audio real en Windows
+2026-05-04 22:42:58,935 INFO Salida: prueba_grabadora_audio_real
+2026-05-04 22:42:58,936 INFO Dispositivo: MicrÃ³fono (2- Trust GXT 232 Microphone)
+2026-05-04 22:42:58,936 INFO Audio: 44100 Hz, 1 canal(es), 16-bit, formato wav, segmentos de 5 s
+2026-05-04 22:42:58,936 INFO Grabando microfono real: prueba_grabadora_audio_real\2026-05-04\22-42-58.wav
+2026-05-04 22:43:05,137 INFO Segmento guardado: prueba_grabadora_audio_real\2026-05-04\22-42-58.wav
+2026-05-04 22:43:05,137 INFO Limite de prueba alcanzado: 1 segmentos.
+2026-05-04 22:43:05,138 INFO Prueba detenida limpiamente.

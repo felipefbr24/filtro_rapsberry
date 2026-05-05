@@ -1,0 +1,4 @@
+threshold_dbfs,files_total,files_analyzed,files_with_events,files_with_errors,events_total,audio_duration_sec,detected_duration_sec,detected_percent,avg_events_per_file
+-35.0,105,104,104,1,288,12325.706,8522.273,69.14,2.77
+-30.0,105,104,104,1,276,12325.706,6899.226,55.97,2.65
+-25.0,105,104,91,1,197,12325.706,4396.767,35.67,1.89

@@ -1,0 +1,13 @@
+archivo,inicio,fin,duracion_solicitada_seg,duracion_real_seg,sample_rate,canales,bits,formato,espacio_libre_antes_mb,espacio_libre_despues_mb,estado,codigo_salida,error
+,2026-05-04T22:36:05,2026-05-04T22:36:05,5,0.094,44100,1,16,wav,118321,118321,error_grabacion,4294967291,"[in#0 @ 00000168808a8100] Could not find audio only device with name [default] among source devices of type audio.
+[in#0 @ 00000168808a8100] Could not find audio only device with name [default] among source devices of type video.
+[in#0 @ 00000168808a7e80] Error opening input: I/O error
+Error opening input file audio=default.
+Error opening input files: I/O error"
+,2026-05-04T22:40:28,2026-05-04T22:40:28,5,0.075,44100,1,16,wav,118321,118321,error_grabacion,4294967291,"[in#0 @ 000001da0a118180] Could not find audio only device with name [MicrÃƒÂ³fono (2- Trust GXT 232 Microphone)] among source devices of type audio.
+[in#0 @ 000001da0a118180] Could not find audio only device with name [MicrÃƒÂ³fono (2- Trust GXT 232 Microphone)] among source devices of type video.
+[in#0 @ 000001da0a117ec0] Error opening input: I/O error
+Error opening input file audio=MicrÃƒÂ³fono (2- Trust GXT 232 Microphone).
+Error opening input files: I/O error"
+2026-05-04/22-42-05.wav,2026-05-04T22:42:05,2026-05-04T22:42:11,5,6.321,44100,1,16,wav,118088,118087,ok,0,
+2026-05-04/22-42-58.wav,2026-05-04T22:42:58,2026-05-04T22:43:05,5,6.2,44100,1,16,wav,118087,118087,ok,0,
